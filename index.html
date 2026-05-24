@@ -304,7 +304,7 @@ function renderViewer(container, state) {
     const el = $('poll-status');
     const spin = fetching ? '<span class="spin" aria-hidden="true">↻</span> ' : '';
     el.innerHTML = fetchError
-      ? `${spin}⚠ Fetch error`
+      ? `${spin}⚠ ${esc(fetchError)}`
       : lastUpdated
         ? `${spin}Updated ${formatAge(Date.now() - lastUpdated)}`
         : `${spin}Fetching…`;
@@ -447,11 +447,11 @@ function renderBuilder(container) {
   $('f-users').value = `o_xot_nik\nkjsdf983\nuser7820aV\nvanyadndz\nmaryll\nmike324\nikibo\nskycomandor\nuser0221t\nm0ld\nroman-mozil\nuser2592Q\nyarobez\nyaroslav-shlapak`;
 
   function fillForm(s) {
-    if (s.title)    $('f-title').value = s.title;
-    if (s.duration) $('f-duration').value = Math.round(s.duration / 60);
-    if (s.start) $('f-start').value = toLocalDT(new Date(s.start * 1000));
-    if (s.users?.length) $('f-users').value = s.users.join('\n');
-    if (s.tasks?.length) $('f-tasks').value = s.tasks.map(t => t.problemName).join('\n');
+    if (s.title    != null) $('f-title').value    = s.title;
+    if (s.duration != null) $('f-duration').value = Math.round(s.duration / 60);
+    if (s.start    != null) $('f-start').value    = toLocalDT(new Date(s.start * 1000));
+    if (s.users?.length)    $('f-users').value    = s.users.join('\n');
+    if (s.tasks?.length)    $('f-tasks').value    = s.tasks.map(t => t.problemName).join('\n');
   }
 
   const urlState = getState();
@@ -524,7 +524,7 @@ function renderBuilder(container) {
   };
 
   $('btn-open').onclick = () => {
-    if (!lastState) return;
+    if (!lastState?.users?.length || !lastState?.tasks?.length) return;
     if (jsonLock) {
       clearTimeout(jsonDebounce);
       applyJson();
