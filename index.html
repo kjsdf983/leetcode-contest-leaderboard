@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LeetCode Contest</title>
+  <style>
+:root {
+  --bg:          #0d1117;
+  --surface:     #161b22;
+  --surface-hi:  #21262d;
+  --border:      #30363d;
+  --text:        #e6edf3;
+  --text-dim:    #8b949e;
+  --text-faint:  #6e7681;
+  --green:       #3fb950;
+  --red:         #f85149;
+  --yellow:      #d29922;
+  --link:        #58a6ff;
+  --gold:        #f0c040;
+  --silver:      #b0b8c1;
+  --bronze:      #cd7f32;
+  --accent:      #1f6feb;
+  --accent-hi:   #388bfd;
+  --accent-ring: rgba(31,111,235,.25);
+  --radius:      6px;
+  --mono:        'SF Mono','Fira Code','Cascadia Code',Consolas,monospace;
+  --ease:        120ms;
+  --sp-1:   4px;
+  --sp-2:   8px;
+  --sp-3:  12px;
+  --sp-4:  16px;
+  --sp-5:  20px;
+  --sp-8:  32px;
+  --text-xs: 13px;
+  --text-sm: 15px;
+  --text-md: 18px;
+  --text-lg: 22px;
+  --text-xl: 26px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:var(--text-md);line-height:1.5}
+a{color:var(--link);text-decoration:none}
+a:hover{text-decoration:underline}
+#app{min-height:100vh;display:flex;flex-direction:column}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:var(--sp-1);padding:var(--sp-2) var(--sp-4);border:1px solid var(--border);border-radius:var(--radius);background:var(--surface-hi);color:var(--text);font-family:inherit;font-size:var(--text-md);cursor:pointer;white-space:nowrap;transition:background var(--ease),border-color var(--ease)}
+.btn:hover{background:var(--surface);border-color:var(--text-dim)}
+.btn:active{transform:translateY(1px)}
+.btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn-sm{padding:4px var(--sp-3);font-size:var(--text-sm)}
+.btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent-hi);border-color:var(--accent-hi)}
+.btn-ghost{background:transparent;border-color:transparent}
+.btn-ghost:hover{background:var(--surface-hi);border-color:var(--border)}
+
+/* Viewer header */
+.header{display:flex;align-items:center;justify-content:space-between;padding:var(--sp-3) var(--sp-5);background:var(--surface);border-bottom:1px solid var(--border);flex-wrap:wrap;gap:var(--sp-2)}
+.header-left{display:flex;flex-direction:column}
+.contest-title{font-size:var(--text-lg);font-weight:600}
+.contest-meta{font-size:var(--text-md);color:var(--text-dim)}
+.header-right{display:flex;align-items:center;gap:var(--sp-4)}
+.countdown-block{display:flex;flex-direction:column;align-items:flex-end}
+.countdown-label{font-size:var(--text-xs);color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px}
+.countdown{font-family:var(--mono);font-size:var(--text-xl);font-weight:600}
+.countdown-live{color:var(--green)}
+.countdown-upcoming{color:var(--yellow)}
+.countdown-ended{color:var(--text-dim)}
+
+/* Leaderboard */
+.main-content{flex:1;padding:var(--sp-4) var(--sp-5)}
+.contest-notice{margin-bottom:var(--sp-3);padding:var(--sp-2) var(--sp-3);border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);color:var(--text-dim)}
+.notice-ended{border-color:var(--text-faint)}
+.table-scroll{overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius)}
+#app.mode-viewer{height:100vh;overflow:hidden}
+#app.mode-viewer .main-content{overflow-y:auto;min-height:0}
+.leaderboard{width:100%;border-collapse:collapse;font-size:var(--text-md);table-layout:fixed}
+.leaderboard thead th{padding:var(--sp-3) var(--sp-4);background:var(--surface);border-bottom:2px solid var(--border);text-align:center;font-weight:600;color:var(--text-dim);white-space:nowrap}
+.leaderboard tbody tr{transition:background var(--ease)}
+.leaderboard tbody tr:hover{background:var(--surface-hi)}
+.leaderboard tbody td{padding:var(--sp-3) var(--sp-4);border-bottom:1px solid var(--border);white-space:nowrap;text-align:center}
+.leaderboard tbody tr:last-child td{border-bottom:none}
+.col-rank{width:64px}
+.col-user{width:160px;text-align:left;font-weight:500;overflow:hidden;text-overflow:ellipsis}
+.leaderboard thead th.col-user{text-align:left}
+.col-score{width:72px;font-weight:700}
+.col-problem{overflow:hidden;text-overflow:ellipsis}
+.col-problem a{color:var(--text-dim);font-weight:500}
+.col-problem a:hover{color:var(--link)}
+.cell-solved,.cell-failed{font-family:var(--mono)}
+.cell-solved{color:var(--green);font-weight:600}
+.cell-failed{color:var(--red)}
+.cell-none{color:var(--text-faint)}
+.rank-badge{font-weight:700}
+.rank-gold{color:var(--gold)}
+.rank-silver{color:var(--silver)}
+.rank-bronze{color:var(--bronze)}
+.spin{display:inline-block;animation:spin .8s linear infinite;margin-left:var(--sp-1);color:var(--text-dim)}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.spin{animation:none}}
+.legend{display:flex;gap:var(--sp-4);padding:var(--sp-3) var(--sp-5);font-size:var(--text-xs);color:var(--text-dim);border-top:1px solid var(--border);flex-wrap:wrap}
+
+/* Shared card */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:var(--sp-5)}
+
+/* Builder */
+.builder{max-width:760px;margin:0 auto;padding:var(--sp-8) var(--sp-5) 48px}
+.builder-title{font-size:var(--text-xl);font-weight:700;text-align:center;margin-bottom:var(--sp-8)}
+.builder-form{display:flex;flex-direction:column;gap:var(--sp-5)}
+.form-section{display:flex;flex-direction:column;gap:var(--sp-3)}
+.section-title{font-size:var(--text-xs);font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3)}
+.form-group{display:flex;flex-direction:column;gap:var(--sp-1)}
+label{font-size:var(--text-sm);font-weight:500;color:var(--text-dim)}
+input[type="text"],input[type="number"],input[type="datetime-local"],textarea{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-family:inherit;font-size:var(--text-md);padding:var(--sp-2) var(--sp-3);width:100%;outline:none;transition:border-color var(--ease),box-shadow var(--ease)}
+input:focus-visible,textarea:focus-visible{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-ring)}
+input[type="number"]{appearance:textfield}
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button{display:none}
+textarea{resize:vertical;min-height:100px}
+#output-section{margin-top:var(--sp-5)}
+.url-text{display:block;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:var(--sp-2) var(--sp-3);font-size:var(--text-sm);font-family:var(--mono);word-break:break-all;color:var(--text-dim);max-height:80px;overflow-y:auto;line-height:1.6;margin-bottom:var(--sp-3)}
+.url-meta{display:flex;align-items:center;justify-content:space-between;font-size:var(--text-sm)}
+.url-actions{display:flex;gap:var(--sp-2)}
+
+@media(max-width:600px){
+  .header{padding:var(--sp-2) var(--sp-3)}
+  .countdown{font-size:var(--text-lg)}
+  .two-col{grid-template-columns:1fr}
+  .main-content{padding:var(--sp-3)}
+  .builder{padding:var(--sp-5) var(--sp-3) var(--sp-8)}
+  .legend{gap:var(--sp-2)}
+}
+  </style>
+</head>
+<body>
+<div id="app"></div>
+
+<!-- LZString: compresses contest config into the URL hash -->
+<script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
+
+<script>
+// ─── Utils ────────────────────────────────────────────────────────────────────
+
+const esc       = s  => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const hms       = s  => { if (s <= 0) return '00:00:00'; const p = n => String(n|0).padStart(2,'0'); return `${p(s/3600)}:${p(s%3600/60)}:${p(s%60)}`; };
+const $         = id => document.getElementById(id);
+const plural    = (n, w) => `${n} ${w}${n !== 1 ? 's' : ''}`;
+const toLocalDT = d  => new Date(d - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+
+// ─── Codec ────────────────────────────────────────────────────────────────────
+
+const encodeState = s => LZString.compressToEncodedURIComponent(JSON.stringify(s));
+const getState = () => {
+  try {
+    const raw = location.hash.slice(1);
+    if (!raw) return null;
+    const s = JSON.parse(LZString.decompressFromEncodedURIComponent(raw));
+    return (s && s.v !== undefined) ? s : null;
+  } catch { return null; }
+};
+const shareURL = s => location.href.split('#')[0] + '#' + encodeState(s);
+
+// ─── API ──────────────────────────────────────────────────────────────────────
+
+const PROXY = 'https://proxy.flg-algo.workers.dev';
+
+async function fetchAll(users) {
+  const fields = users.map((u, i) =>
+    `u${i}: recentSubmissionList(username: ${JSON.stringify(u)}, limit: 20) { problemName: titleSlug timestamp statusDisplay }`
+  ).join(' ');
+  const res = await fetch(PROXY, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query: `{ ${fields} }` }),
+  });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  const { data, errors } = await res.json();
+  if (errors?.length) throw new Error(errors[0].message);
+  if (!data) throw new Error('Empty response from API');
+  return Object.fromEntries(users.map((u, i) => [u, data[`u${i}`] || []]));
+}
+
+// ─── Viewer ───────────────────────────────────────────────────────────────────
+
+function renderViewer(container, state) {
+  const { title = 'Contest', start, duration, users = [], tasks = [] } = state;
+  const end = start + duration;
+  document.title = `${title} - LeetCode Contest`;
+  container.classList.add('mode-viewer');
+
+  container.innerHTML = `
+    <header class="header">
+      <div class="header-left">
+        <h1 class="contest-title">${esc(title)}</h1>
+        <span class="contest-meta">${plural(users.length, 'participant')} · ${plural(tasks.length, 'problem')}</span>
+      </div>
+      <div class="header-right">
+        <div class="countdown-block">
+          <span class="countdown-label" id="cd-label">Loading…</span>
+          <span class="countdown" id="cd-value">--:--:--</span>
+        </div>
+        <button class="btn btn-sm btn-ghost" id="btn-back">← Setup</button>
+      </div>
+    </header>
+    <main class="main-content">
+      <p id="notice" class="contest-notice" style="display:none"></p>
+      <div class="table-scroll">
+        <table class="leaderboard" aria-label="Contest leaderboard" style="min-width:${64 + 160 + 72 + tasks.length * 320}px">
+          <thead><tr>
+            <th class="col-rank">#</th>
+            <th class="col-user">User</th>
+            <th class="col-score">Solved</th>
+            ${tasks.map(t => `<th class="col-problem"><a href="https://leetcode.com/problems/${encodeURIComponent(t.problemName)}/" target="_blank" rel="noopener">${esc(t.problemName)}</a></th>`).join('')}
+          </tr></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </main>
+    <footer class="legend">
+      <span style="color:var(--green)">✓ time from start</span>
+      <span style="color:var(--text-dim)">+time since prev solve</span>
+      <span style="color:var(--red)">✗ N wrong attempts</span>
+      <span style="color:var(--text-faint)">- not attempted</span>
+      <span id="poll-status" role="status" aria-live="polite" style="margin-left:auto;color:var(--text-faint)"></span>
+    </footer>`;
+
+  let alive = true;
+  let cancelSleep = () => {};
+  const sleepCancellable = ms => new Promise(r => {
+    const t = setTimeout(r, ms);
+    cancelSleep = () => { clearTimeout(t); r(); };
+  });
+  $('btn-back').onclick = () => { alive = false; cancelSleep(); clearInterval(t1); clearInterval(t2); renderBuilder(container); };
+
+  const rawSubs = {};
+  const names   = new Set(tasks.map(t => t.problemName));
+  let lastUpdated = null, fetching = false, fetchError = null;
+
+  function renderTable() {
+    const ranked = users.map(u => {
+      const m = {};
+      const subs = (rawSubs[u] || [])
+        .filter(s => { const ts = +s.timestamp; return ts >= start && ts <= end && names.has(s.problemName); })
+        .sort((a, b) => +a.timestamp - +b.timestamp);
+      for (const sub of subs) {
+        const r = m[sub.problemName] ??= { wrong: 0, accepted: false, solveTime: null };
+        if (sub.statusDisplay === 'Accepted') {
+          if (!r.accepted) { r.accepted = true; r.solveTime = +sub.timestamp - start; }
+        } else if (!r.accepted) {
+          r.wrong++;
+        }
+      }
+      const solved = Object.values(m).filter(d => d.accepted).sort((a, b) => a.solveTime - b.solveTime);
+      const score  = solved.length;
+      const totalTime = solved.reduce((s, d) => s + d.solveTime, 0);
+      let prev = 0;
+      for (const d of solved) { d.delta = d.solveTime - prev; prev = d.solveTime; }
+      return { u, m, score, totalTime };
+    }).sort((a, b) => b.score - a.score || (a.score > 0 ? a.totalTime - b.totalTime : 0));
+
+    ranked.forEach((e, i) => {
+      if (i === 0) { e.rank = 1; return; }
+      const p = ranked[i - 1];
+      const tied = p.score === e.score && (e.score === 0 || p.totalTime === e.totalTime);
+      e.rank = tied ? p.rank : i + 1;
+    });
+
+    const cell = d => d
+      ? d.accepted
+        ? `<td class="cell-solved">✓ ${hms(d.solveTime)} <span style="color:var(--text-dim)">+${hms(d.delta)}</span>${d.wrong ? ` <span style="color:var(--red)">✗ ${d.wrong}</span>` : ''}</td>`
+        : `<td class="cell-failed">✗ ${d.wrong}</td>`
+      : `<td class="cell-none">-</td>`;
+
+    $('tbody').innerHTML = ranked.map(({ u, m, score, rank }) =>
+      `<tr>
+        <td class="col-rank"><span class="rank-badge${rank <= 3 ? ' rank-' + ['gold','silver','bronze'][rank-1] : ''}">${rank}</span></td>
+        <td class="col-user"><a href="https://leetcode.com/u/${encodeURIComponent(u)}/" target="_blank" rel="noopener">${esc(u)}</a></td>
+        <td class="col-score">${score}</td>
+        ${tasks.map(t => cell(m[t.problemName])).join('')}
+      </tr>`
+    ).join('');
+
+    const now = Date.now() / 1000 | 0;
+    const notice = $('notice');
+    const ended = now >= end;
+    const shown = now < start || ended;
+    notice.style.display = shown ? '' : 'none';
+    if (shown) {
+      notice.textContent = ended ? 'Contest has ended. Showing final standings.' : 'Contest has not started yet.';
+      notice.classList.toggle('notice-ended', ended);
+    }
+  }
+
+  function formatAge(ms) {
+    const s = ms / 1000 | 0;
+    if (s < 10) return 'just now';
+    if (s < 60) return `${s}s ago`;
+    return `${Math.floor(s / 60)}m ago`;
+  }
+
+  function updateStatus() {
+    const el = $('poll-status');
+    const spin = fetching ? '<span class="spin" aria-hidden="true">↻</span> ' : '';
+    el.innerHTML = fetchError
+      ? `${spin}⚠ Fetch error`
+      : lastUpdated
+        ? `${spin}Updated ${formatAge(Date.now() - lastUpdated)}`
+        : `${spin}Fetching…`;
+  }
+
+  function tickCountdown() {
+    const now   = Date.now() / 1000 | 0;
+    const label = $('cd-label');
+    const value = $('cd-value');
+    if (now < start) {
+      label.textContent = 'Starts in';
+      value.textContent = hms(start - now);
+      value.className   = 'countdown countdown-upcoming';
+    } else if (now < end) {
+      label.textContent = 'Time left';
+      value.textContent = hms(end - now);
+      value.className   = 'countdown countdown-live';
+    } else {
+      label.textContent = 'Contest ended';
+      value.textContent = '+' + hms(now - end);
+      value.className   = 'countdown countdown-ended';
+    }
+  }
+
+  const t1 = setInterval(tickCountdown, 1000);
+  const t2 = setInterval(updateStatus, 10000);
+  tickCountdown();
+  renderTable();
+
+  (async () => {
+    while (alive) {
+      const now = Date.now() / 1000 | 0;
+      if (now < start) {
+        await sleepCancellable((start - now) * 1000);
+        continue;
+      }
+      fetching = true; fetchError = null; updateStatus();
+      try {
+        const all = await fetchAll(users);
+        for (const [u, subs] of Object.entries(all)) {
+          const seen = new Map((rawSubs[u] || []).map(s => [`${s.timestamp}:${s.problemName}`, s]));
+          for (const s of subs) seen.set(`${s.timestamp}:${s.problemName}`, s);
+          rawSubs[u] = [...seen.values()];
+        }
+        lastUpdated = Date.now();
+        if (alive) renderTable();
+      } catch (err) {
+        fetchError = err.message;
+      }
+      fetching = false; if (alive) updateStatus();
+      if (!alive || Date.now() / 1000 >= end) break;
+      await sleepCancellable(30000);
+    }
+  })();
+}
+
+// ─── Builder ──────────────────────────────────────────────────────────────────
+
+function renderBuilder(container) {
+  document.title = 'LeetCode Contest - Setup';
+  container.classList.remove('mode-viewer');
+
+  container.innerHTML = `
+    <div class="builder">
+      <h1 class="builder-title">New Contest</h1>
+      <form id="builder-form" class="builder-form" novalidate>
+        <section class="form-section card">
+          <h2 class="section-title">Details</h2>
+          <div class="two-col">
+            <div class="form-group">
+              <label for="f-title">Name</label>
+              <input id="f-title" type="text" placeholder="e.g. Q3 2025 Internal Contest" />
+            </div>
+            <div class="form-group">
+              <label for="f-duration">Duration (minutes)</label>
+              <input id="f-duration" type="number" value="90" min="1" max="480" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="f-start">Start Date &amp; Time (your local timezone)</label>
+            <input id="f-start" type="datetime-local" />
+          </div>
+        </section>
+        <section class="form-section card">
+          <h2 class="section-title">Participants</h2>
+          <textarea id="f-users" rows="5" placeholder="alice&#10;bob&#10;charlie"></textarea>
+        </section>
+        <section class="form-section card">
+          <h2 class="section-title">Problems</h2>
+          <textarea id="f-tasks" rows="5" placeholder="two-sum&#10;add-two-numbers"></textarea>
+        </section>
+        <section class="form-section card">
+          <h2 class="section-title">Config JSON</h2>
+          <textarea id="f-json" rows="10" style="font-family:var(--mono);font-size:var(--text-sm)"></textarea>
+        </section>
+      </form>
+      <div id="output-section" class="card">
+        <h2 class="section-title">Link</h2>
+        <code id="share-url" class="url-text"></code>
+        <div class="url-meta">
+          <span id="url-size" style="color:var(--text-faint)"></span>
+          <div class="url-actions">
+            <button class="btn btn-sm btn-ghost" id="btn-copy">Copy</button>
+            <button class="btn btn-primary" id="btn-open">Open Contest →</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+
+  let lastState = null;
+
+  const extractSlug = line => {
+    const m = line.match(/\/problems\/([\w-]+)/);
+    if (m) return m[1];
+    return line.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '');
+  };
+
+  const readFields = () => ({
+    title: $('f-title').value.trim(),
+    start: $('f-start').value,
+    mins:  Math.max(1, parseInt($('f-duration').value, 10) || 90),
+    users: $('f-users').value.split(/[\n,]+/).map(u => u.trim()).filter(Boolean),
+    slugs: $('f-tasks').value.split('\n').map(l => l.trim()).filter(Boolean).map(extractSlug).filter(Boolean),
+  });
+
+  const toState = ({ title, start, mins, users, slugs }) => ({
+    v: 1, title,
+    start:    start ? Math.floor(new Date(start) / 1000) : 0,
+    duration: mins * 60,
+    users,
+    tasks: slugs.map(s => ({ problemName: s })),
+  });
+
+  const toJsonObj = ({ title, start, mins, users, slugs }) =>
+    ({ title, startLocal: start, duration: mins, users, problems: slugs });
+
+  const now = new Date();
+  $('f-title').value = toLocalDT(now).slice(0, 10);
+  $('f-start').value = toLocalDT(now);
+  $('f-users').value = `o_xot_nik\nkjsdf983\nuser7820aV\nvanyadndz\nmaryll\nmike324\nikibo\nskycomandor\nuser0221t\nm0ld\nroman-mozil\nuser2592Q\nyarobez\nyaroslav-shlapak`;
+
+  function fillForm(s) {
+    if (s.title)    $('f-title').value = s.title;
+    if (s.duration) $('f-duration').value = Math.round(s.duration / 60);
+    if (s.start) $('f-start').value = toLocalDT(new Date(s.start * 1000));
+    if (s.users?.length) $('f-users').value = s.users.join('\n');
+    if (s.tasks?.length) $('f-tasks').value = s.tasks.map(t => t.problemName).join('\n');
+  }
+
+  const urlState = getState();
+  if (urlState) fillForm(urlState);
+
+  let jsonLock = false;
+
+  const sync = () => {
+    const f = readFields();
+    if (!jsonLock) $('f-json').value = JSON.stringify(toJsonObj(f), null, 2);
+    lastState = toState(f);
+    const url = shareURL(lastState);
+    $('share-url').textContent = url;
+    $('url-size').textContent = `URL length: ${url.length} characters`;
+  };
+
+  const applyJson = () => {
+    try {
+      const j = JSON.parse($('f-json').value);
+      if (j.title      != null) $('f-title').value    = j.title;
+      if (j.duration   != null) $('f-duration').value = j.duration;
+      if (j.startLocal != null) $('f-start').value    = j.startLocal;
+      if (j.users)    $('f-users').value = Array.isArray(j.users)    ? j.users.join('\n')    : j.users;
+      if (j.problems) $('f-tasks').value = Array.isArray(j.problems) ? j.problems.join('\n') : j.problems;
+      return true;
+    } catch { return false; }
+  };
+
+  let jsonDebounce = null;
+  $('f-json').addEventListener('input', () => {
+    jsonLock = true;
+    clearTimeout(jsonDebounce);
+    jsonDebounce = setTimeout(() => {
+      const ok = applyJson();
+      jsonLock = !ok;  // keep lock on parse failure so sync() won't overwrite the textarea
+      sync();
+      jsonLock = false;
+    }, 3000);
+  });
+
+  const normalizeTasks = () => {
+    const val = $('f-tasks').value;
+    const normalized = [...new Set(val.split(/[\n,\s]+/).map(extractSlug).filter(Boolean))].join('\n');
+    if (normalized !== val) { $('f-tasks').value = normalized; sync(); }
+  };
+
+  ['f-title', 'f-start', 'f-duration', 'f-users', 'f-tasks'].forEach(id =>
+    $(id).addEventListener('input', sync)
+  );
+  $('f-tasks').addEventListener('paste', () => setTimeout(normalizeTasks, 0));
+  $('f-tasks').addEventListener('blur', normalizeTasks);
+  sync();
+
+  $('builder-form').onsubmit = e => e.preventDefault();
+
+  $('btn-copy').onclick = async () => {
+    if (!lastState) return;
+    const btn = $('btn-copy');
+    try {
+      await navigator.clipboard.writeText($('share-url').textContent);
+      btn.textContent = 'Copied!';
+    } catch {
+      const r = document.createRange();
+      r.selectNode($('share-url'));
+      getSelection().removeAllRanges();
+      getSelection().addRange(r);
+      btn.textContent = 'Select - Ctrl+C';
+    }
+    setTimeout(() => { btn.textContent = 'Copy'; }, 2500);
+  };
+
+  $('btn-open').onclick = () => {
+    if (!lastState) return;
+    if (jsonLock) {
+      clearTimeout(jsonDebounce);
+      applyJson();
+      jsonLock = false;
+      sync();
+    }
+    location.replace('#' + encodeState(lastState));
+    renderViewer(container, lastState);
+  };
+}
+
+// ─── Entry ────────────────────────────────────────────────────────────────────
+
+const app   = $('app');
+const state = getState();
+(state?.users?.length && state?.tasks?.length) ? renderViewer(app, state) : renderBuilder(app);
+</script>
+</body>
+</html>
