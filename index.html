@@ -254,7 +254,7 @@ function renderViewer(container, state) {
       }
       const solved = Object.values(m).filter(d => d.accepted).sort((a, b) => a.solveTime - b.solveTime);
       const score  = solved.length;
-      const totalTime = solved.reduce((s, d) => s + d.solveTime, 0);
+      const totalTime = solved.length > 0 ? solved[solved.length - 1].solveTime : 0;
       let prev = 0;
       for (const d of solved) { d.delta = d.solveTime - prev; prev = d.solveTime; }
       return { u, m, score, totalTime };
