@@ -82,12 +82,14 @@ a:hover{text-decoration:underline}
 .leaderboard tbody td{padding:var(--sp-3) var(--sp-4);border-bottom:1px solid var(--border);white-space:nowrap;text-align:center}
 .leaderboard tbody tr:last-child td{border-bottom:none}
 .col-rank{width:64px}
-.col-user{width:160px;text-align:left;font-weight:500;overflow:hidden;text-overflow:ellipsis}
-.leaderboard thead th.col-user{text-align:left}
+.col-user{width:160px;text-align:center;font-weight:500;overflow:hidden;text-overflow:ellipsis}
+.leaderboard thead th.col-user{text-align:center}
 .col-score{width:72px;font-weight:700}
 .col-problem{overflow:hidden;text-overflow:ellipsis}
-.col-problem a{color:var(--text-dim);font-weight:500}
-.col-problem a:hover{color:var(--link)}
+.col-user a{color:var(--text-dim)}
+.col-user a:hover{color:var(--link)}
+.col-problem a{color:var(--link);font-weight:500}
+.col-problem a:hover{color:var(--accent-hi)}
 .cell-solved,.cell-failed{font-family:var(--mono)}
 .cell-solved{color:var(--green);font-weight:600}
 .cell-failed{color:var(--red)}
@@ -185,7 +187,7 @@ async function fetchAll(users) {
 // ─── Viewer ───────────────────────────────────────────────────────────────────
 
 function renderViewer(container, state) {
-  const { title = 'Contest', start, duration, users = [], tasks = [] } = state;
+  const { title = 'Contest', start, duration, users = [], displayNames = {}, tasks = [] } = state;
   const end = start + duration;
   document.title = `${title} - LeetCode Contest`;
   container.classList.add('mode-viewer');
@@ -276,7 +278,7 @@ function renderViewer(container, state) {
     $('tbody').innerHTML = ranked.map(({ u, m, score, rank }) =>
       `<tr>
         <td class="col-rank"><span class="rank-badge${rank <= 3 ? ' rank-' + ['gold','silver','bronze'][rank-1] : ''}">${rank}</span></td>
-        <td class="col-user"><a href="https://leetcode.com/u/${encodeURIComponent(u)}/" target="_blank" rel="noopener">${esc(u)}</a></td>
+        <td class="col-user"><a href="https://leetcode.com/u/${encodeURIComponent(u)}/" target="_blank" rel="noopener">${esc(displayNames[u] || u)}</a></td>
         <td class="col-score">${score}</td>
         ${tasks.map(t => cell(m[t.problemName])).join('')}
       </tr>`
@@ -390,7 +392,7 @@ function renderBuilder(container) {
         </section>
         <section class="form-section card">
           <h2 class="section-title">Participants</h2>
-          <textarea id="f-users" rows="5" placeholder="alice&#10;bob&#10;charlie"></textarea>
+          <textarea id="f-users" rows="5" placeholder="alice&#10;bob|Bob Smith&#10;charlie|Smith, Charlie"></textarea>
         </section>
         <section class="form-section card">
           <h2 class="section-title">Problems</h2>
@@ -422,36 +424,69 @@ function renderBuilder(container) {
     return line.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '');
   };
 
-  const readFields = () => ({
-    title: $('f-title').value.trim(),
-    start: $('f-start').value,
-    mins:  Math.max(1, parseInt($('f-duration').value, 10) || 90),
-    users: $('f-users').value.split(/[\n,]+/).map(u => u.trim()).filter(Boolean),
-    slugs: $('f-tasks').value.split('\n').map(l => l.trim()).filter(Boolean).map(extractSlug).filter(Boolean),
-  });
+  const parseUserLine = line => {
+    const idx = line.indexOf('|');
+    return idx === -1
+      ? { username: line.trim(), displayName: null }
+      : { username: line.slice(0, idx).trim(), displayName: line.slice(idx + 1).trim() || null };
+  };
 
-  const toState = ({ title, start, mins, users, slugs }) => ({
+  const formatUserLines = (users, dn = {}) =>
+    users.map(u => dn[u] ? `${u}|${dn[u]}` : u).join('\n');
+
+  const withDN = dn => Object.keys(dn).length ? { displayNames: dn } : {};
+
+  const readFields = () => {
+    const users = [], displayNames = {};
+    for (const line of $('f-users').value.split('\n')) {
+      const { username, displayName } = parseUserLine(line);
+      if (!username) continue;
+      users.push(username);
+      if (displayName) displayNames[username] = displayName;
+    }
+    return {
+      title: $('f-title').value.trim(),
+      start: $('f-start').value,
+      mins:  Math.max(1, parseInt($('f-duration').value, 10) || 90),
+      users,
+      displayNames,
+      slugs: $('f-tasks').value.split('\n').map(l => l.trim()).filter(Boolean).map(extractSlug).filter(Boolean),
+    };
+  };
+
+  const toState = ({ title, start, mins, users, displayNames, slugs }) => ({
     v: 1, title,
     start:    start ? Math.floor(new Date(start) / 1000) : 0,
     duration: mins * 60,
     users,
+    ...withDN(displayNames),
     tasks: slugs.map(s => ({ problemName: s })),
   });
 
-  const toJsonObj = ({ title, start, mins, users, slugs }) =>
-    ({ title, startLocal: start, duration: mins, users, problems: slugs });
+  const toJsonObj = ({ title, start, mins, users, displayNames, slugs }) =>
+    ({ title, startLocal: start, duration: mins, users, ...withDN(displayNames), problems: slugs });
+
+  const applyFields = ({ title, duration, start, usersText, tasks }) => {
+    if (title    != null) $('f-title').value    = title;
+    if (duration != null) $('f-duration').value = duration;
+    if (start    != null) $('f-start').value    = start;
+    if (usersText != null) $('f-users').value   = usersText;
+    if (tasks    != null) $('f-tasks').value    = tasks;
+  };
 
   const now = new Date();
   $('f-title').value = toLocalDT(now).slice(0, 10);
   $('f-start').value = toLocalDT(now);
-  $('f-users').value = `o_xot_nik\nkjsdf983\nuser7820aV\nvanyadndz\nmaryll\nmike324\nikibo\nskycomandor\nuser0221t\nm0ld\nroman-mozil\nuser2592Q\nyarobez\nyaroslav-shlapak`;
+  $('f-users').value = `o_xot_nik|Andrii\nkjsdf983|Anton\nuser7820aV|Daniil\nvanyadndz|Ivan\nmaryll|Mariia\nmike324|Mike\nikibo|Oleh\nskycomandor|Oleksandr\nuser0221t|Olha\nm0ld|Petro\nroman-mozil|Roman\nuser2592Q|Viktor\nyarobez|Yaro\nyaroslav-shlapak|Yaroslav`;
 
   function fillForm(s) {
-    if (s.title    != null) $('f-title').value    = s.title;
-    if (s.duration != null) $('f-duration').value = Math.round(s.duration / 60);
-    if (s.start    != null) $('f-start').value    = toLocalDT(new Date(s.start * 1000));
-    if (s.users?.length)    $('f-users').value    = s.users.join('\n');
-    if (s.tasks?.length)    $('f-tasks').value    = s.tasks.map(t => t.problemName).join('\n');
+    applyFields({
+      title:     s.title,
+      duration:  s.duration != null ? Math.round(s.duration / 60) : null,
+      start:     s.start    != null ? toLocalDT(new Date(s.start * 1000)) : null,
+      usersText: s.users.length     ? formatUserLines(s.users, s.displayNames) : null,
+      tasks:     s.tasks.length     ? s.tasks.map(t => t.problemName).join('\n') : null,
+    });
   }
 
   const urlState = getState();
@@ -471,11 +506,18 @@ function renderBuilder(container) {
   const applyJson = () => {
     try {
       const j = JSON.parse($('f-json').value);
-      if (j.title      != null) $('f-title').value    = j.title;
-      if (j.duration   != null) $('f-duration').value = j.duration;
-      if (j.startLocal != null) $('f-start').value    = j.startLocal;
-      if (j.users)    $('f-users').value = Array.isArray(j.users)    ? j.users.join('\n')    : j.users;
-      if (j.problems) $('f-tasks').value = Array.isArray(j.problems) ? j.problems.join('\n') : j.problems;
+      const users = j.users
+        ? (Array.isArray(j.users) ? j.users : j.users.split('\n').map(u => u.trim()).filter(Boolean))
+        : null;
+      applyFields({
+        title:     j.title,
+        duration:  j.duration,
+        start:     j.startLocal,
+        usersText: users ? formatUserLines(users, j.displayNames ?? {}) : null,
+        tasks:     Array.isArray(j.problems)      ? j.problems.join('\n')
+                 : typeof j.problems === 'string' ? j.problems
+                 : null,
+      });
       return true;
     } catch { return false; }
   };
