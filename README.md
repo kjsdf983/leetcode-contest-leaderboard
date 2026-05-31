@@ -32,6 +32,38 @@ gh repo create my-lc-tracker --public --push --source=.
 # Enable Pages: Settings → Pages → Branch: main → / (root)
 ```
 
+## Participants format
+
+One participant per line. Use `username` for LeetCode-username-only, or `username|Display Name` to show a custom name on the leaderboard while the link still points to the real profile.
+
+```
+alice
+bob|Bob Smith
+charlie|Smith, Charlie
+```
+
+Display names can contain anything — commas, colons, parentheses, spaces. The only character that cannot appear in a display name is `|`, which is also never valid in a LeetCode username.
+
+## Config JSON
+
+The JSON textarea in the builder accepts and exports the following fields:
+
+```json
+{
+  "title": "Q3 2025 Internal Contest",
+  "startLocal": "2025-09-01T10:00",
+  "duration": 90,
+  "users": ["o_xot_nik", "kjsdf983"],
+  "displayNames": {
+    "o_xot_nik": "Andrii",
+    "kjsdf983": "Anton"
+  },
+  "problems": ["two-sum", "add-two-numbers"]
+}
+```
+
+`displayNames` is optional — omit it or leave it empty to show raw LeetCode usernames. Any user not present in `displayNames` falls back to their username on the leaderboard.
+
 ## Requirements
 
 - Participants must have **public** LeetCode profiles
