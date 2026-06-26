@@ -151,6 +151,30 @@ const $         = id => document.getElementById(id);
 const plural    = (n, w) => `${n} ${w}${n !== 1 ? 's' : ''}`;
 const toLocalDT = d  => new Date(d - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
 
+// ─── Team generation ─────────────────────────────────────────────────────────
+
+const TEAM_WORDS = [
+  'Aurora','Comet','Corona','Cosmos','Eclipse','Equinox','Galaxy','Gravity',
+  'Halo','Horizon','Kepler','Lunar','Meteor','Nebula','Nova','Orbit','Orion',
+  'Parsec','Plasma','Pulsar','Quark','Quasar','Radiant','Solar','Stardust',
+  'Stellar','Sunspot','Supernova','Vertex','Zodiac',
+];
+
+function generateTeams(users, teamSize) {
+  const shuffled = [...users];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  const chunks = [];
+  for (let i = 0; i < shuffled.length; i += teamSize) chunks.push(shuffled.slice(i, i + teamSize));
+  if (chunks.length > 1 && chunks[chunks.length - 1].length < teamSize) {
+    for (const u of chunks.pop()) chunks[Math.floor(Math.random() * chunks.length)].push(u);
+  }
+  const namePool = [...TEAM_WORDS].sort(() => Math.random() - 0.5);
+  return chunks.map((members, i) => ({ name: namePool[i] ?? `Team ${i + 1}`, members }));
+}
+
 // ─── Codec ────────────────────────────────────────────────────────────────────
 
 const encodeState = s => LZString.compressToEncodedURIComponent(JSON.stringify(s));
@@ -187,7 +211,7 @@ async function fetchAll(users) {
 // ─── Viewer ───────────────────────────────────────────────────────────────────
 
 function renderViewer(container, state) {
-  const { title = 'Contest', start, duration, users = [], displayNames = {}, tasks = [] } = state;
+  const { title = 'Contest', start, duration, users = [], displayNames = {}, tasks = [], teams = [] } = state;
   const end = start + duration;
   document.title = `${title} - LeetCode Contest`;
   container.classList.add('mode-viewer');
@@ -196,7 +220,7 @@ function renderViewer(container, state) {
     <header class="header">
       <div class="header-left">
         <h1 class="contest-title">${esc(title)}</h1>
-        <span class="contest-meta">${plural(users.length, 'participant')} · ${plural(tasks.length, 'problem')}</span>
+        <span class="contest-meta">${teams.length > 0 ? plural(teams.length, 'team') : plural(users.length, 'participant')} · ${plural(tasks.length, 'problem')}</span>
       </div>
       <div class="header-right">
         <div class="countdown-block">
@@ -209,10 +233,10 @@ function renderViewer(container, state) {
     <main class="main-content">
       <p id="notice" class="contest-notice" style="display:none"></p>
       <div class="table-scroll">
-        <table class="leaderboard" aria-label="Contest leaderboard" style="min-width:${64 + 160 + 72 + tasks.length * 320}px">
+        <table class="leaderboard" aria-label="Contest leaderboard" style="min-width:${64 + (teams.length > 0 ? 200 : 160) + 72 + tasks.length * 320}px">
           <thead><tr>
             <th class="col-rank">#</th>
-            <th class="col-user">User</th>
+            <th class="col-user">Participant</th>
             <th class="col-score">Solved</th>
             ${tasks.map(t => `<th class="col-problem"><a href="https://leetcode.com/problems/${encodeURIComponent(t.problemName)}/" target="_blank" rel="noopener">${esc(t.problemName)}</a></th>`).join('')}
           </tr></thead>
@@ -225,6 +249,7 @@ function renderViewer(container, state) {
       <span style="color:var(--text-dim)">+time since prev solve</span>
       <span style="color:var(--red)">✗ N wrong attempts</span>
       <span style="color:var(--text-faint)">- not attempted</span>
+      ${teams.length > 0 ? '<span style="color:var(--text-faint)">×N multiple members solved</span>' : ''}
       <span id="poll-status" role="status" aria-live="polite" style="margin-left:auto;color:var(--text-faint)"></span>
     </footer>`;
 
@@ -241,26 +266,59 @@ function renderViewer(container, state) {
   let lastUpdated = null, fetching = false, fetchError = null;
 
   function renderTable() {
-    const ranked = users.map(u => {
-      const m = {};
-      const subs = (rawSubs[u] || [])
-        .filter(s => { const ts = +s.timestamp; return ts >= start && ts <= end && names.has(s.problemName); })
-        .sort((a, b) => +a.timestamp - +b.timestamp);
-      for (const sub of subs) {
-        const r = m[sub.problemName] ??= { wrong: 0, accepted: false, solveTime: null };
-        if (sub.statusDisplay === 'Accepted') {
-          if (!r.accepted) { r.accepted = true; r.solveTime = +sub.timestamp - start; }
-        } else if (!r.accepted) {
-          r.wrong++;
-        }
-      }
-      const solved = Object.values(m).filter(d => d.accepted).sort((a, b) => a.solveTime - b.solveTime);
-      const score  = solved.length;
-      const totalTime = solved.length > 0 ? solved[solved.length - 1].solveTime : 0;
-      let prev = 0;
-      for (const d of solved) { d.delta = d.solveTime - prev; prev = d.solveTime; }
-      return { u, m, score, totalTime };
-    }).sort((a, b) => b.score - a.score || (a.score > 0 ? a.totalTime - b.totalTime : 0));
+    const isTeamMode = teams.length > 0;
+
+    const scoreEntries = isTeamMode
+      ? teams.map(team => {
+          const m = {};
+          const acceptors = {};
+          const allSubs = [];
+          for (const u of team.members) {
+            for (const s of (rawSubs[u] || [])) {
+              const ts = +s.timestamp;
+              if (ts >= start && ts <= end && names.has(s.problemName)) allSubs.push({ ...s, ts, user: u });
+            }
+          }
+          allSubs.sort((a, b) => a.ts - b.ts);
+          for (const sub of allSubs) {
+            const r = m[sub.problemName] ??= { wrong: 0, accepted: false, solveTime: null, solverCount: 0 };
+            if (sub.statusDisplay === 'Accepted') {
+              if (!r.accepted) { r.accepted = true; r.solveTime = sub.ts - start; }
+              const seen = acceptors[sub.problemName] ??= new Set();
+              if (!seen.has(sub.user)) { seen.add(sub.user); r.solverCount++; }
+            } else if (!r.accepted) {
+              r.wrong++;
+            }
+          }
+          const solved = Object.values(m).filter(d => d.accepted).sort((a, b) => a.solveTime - b.solveTime);
+          const score = solved.length;
+          const totalTime = solved.length > 0 ? solved[solved.length - 1].solveTime : 0;
+          let prev = 0;
+          for (const d of solved) { d.delta = d.solveTime - prev; prev = d.solveTime; }
+          return { team, m, score, totalTime };
+        })
+      : users.map(u => {
+          const m = {};
+          const subs = (rawSubs[u] || [])
+            .filter(s => { const ts = +s.timestamp; return ts >= start && ts <= end && names.has(s.problemName); })
+            .sort((a, b) => +a.timestamp - +b.timestamp);
+          for (const sub of subs) {
+            const r = m[sub.problemName] ??= { wrong: 0, accepted: false, solveTime: null };
+            if (sub.statusDisplay === 'Accepted') {
+              if (!r.accepted) { r.accepted = true; r.solveTime = +sub.timestamp - start; }
+            } else if (!r.accepted) {
+              r.wrong++;
+            }
+          }
+          const solved = Object.values(m).filter(d => d.accepted).sort((a, b) => a.solveTime - b.solveTime);
+          const score = solved.length;
+          const totalTime = solved.length > 0 ? solved[solved.length - 1].solveTime : 0;
+          let prev = 0;
+          for (const d of solved) { d.delta = d.solveTime - prev; prev = d.solveTime; }
+          return { u, m, score, totalTime };
+        });
+
+    const ranked = scoreEntries.sort((a, b) => b.score - a.score || (a.score > 0 ? a.totalTime - b.totalTime : 0));
 
     ranked.forEach((e, i) => {
       if (i === 0) { e.rank = 1; return; }
@@ -269,20 +327,27 @@ function renderViewer(container, state) {
       e.rank = tied ? p.rank : i + 1;
     });
 
-    const cell = d => d
+    const cell = (d, isTeam) => d
       ? d.accepted
-        ? `<td class="cell-solved">✓ ${hms(d.solveTime)} <span style="color:var(--text-dim)">+${hms(d.delta)}</span>${d.wrong ? ` <span style="color:var(--red)">✗ ${d.wrong}</span>` : ''}</td>`
+        ? `<td class="cell-solved">✓ ${hms(d.solveTime)} <span style="color:var(--text-dim)">+${hms(d.delta)}</span>${d.wrong ? ` <span style="color:var(--red)">✗ ${d.wrong}</span>` : ''}${isTeam && d.solverCount > 1 ? ` <span style="color:var(--text-faint)">×${d.solverCount}</span>` : ''}</td>`
         : `<td class="cell-failed">✗ ${d.wrong}</td>`
       : `<td class="cell-none">-</td>`;
 
-    $('tbody').innerHTML = ranked.map(({ u, m, score, rank }) =>
-      `<tr>
-        <td class="col-rank"><span class="rank-badge${rank <= 3 ? ' rank-' + ['gold','silver','bronze'][rank-1] : ''}">${rank}</span></td>
-        <td class="col-user"><a href="https://leetcode.com/u/${encodeURIComponent(u)}/" target="_blank" rel="noopener">${esc(displayNames[u] || u)}</a></td>
-        <td class="col-score">${score}</td>
-        ${tasks.map(t => cell(m[t.problemName])).join('')}
-      </tr>`
-    ).join('');
+    $('tbody').innerHTML = ranked.map(e => {
+      const rankBadge = `<span class="rank-badge${e.rank <= 3 ? ' rank-' + ['gold','silver','bronze'][e.rank-1] : ''}">${e.rank}</span>`;
+      const participantCell = isTeamMode
+        ? `<td class="col-user" style="white-space:normal">
+            <span style="font-weight:600">${esc(e.team.name)}</span><br>
+            <span style="font-size:var(--text-xs);color:var(--text-dim)">${e.team.members.map(u => `<a href="https://leetcode.com/u/${encodeURIComponent(u)}/" target="_blank" rel="noopener" style="color:var(--text-dim)">${esc(displayNames[u] || u)}</a>`).join(' · ')}</span>
+           </td>`
+        : `<td class="col-user"><a href="https://leetcode.com/u/${encodeURIComponent(e.u)}/" target="_blank" rel="noopener">${esc(displayNames[e.u] || e.u)}</a></td>`;
+      return `<tr>
+        <td class="col-rank">${rankBadge}</td>
+        ${participantCell}
+        <td class="col-score">${e.score}</td>
+        ${tasks.map(t => cell(e.m[t.problemName], isTeamMode)).join('')}
+      </tr>`;
+    }).join('');
 
     const now = Date.now() / 1000 | 0;
     const notice = $('notice');
@@ -393,6 +458,11 @@ function renderBuilder(container) {
         <section class="form-section card">
           <h2 class="section-title">Participants</h2>
           <textarea id="f-users" rows="5" placeholder="alice&#10;bob|Bob Smith&#10;charlie|Smith, Charlie"></textarea>
+          <div class="form-group" style="flex-direction:row;align-items:center;gap:var(--sp-3)">
+            <label for="f-teamsize" style="white-space:nowrap">Team Size</label>
+            <input id="f-teamsize" type="number" value="1" min="1" max="50" style="max-width:100px" />
+            <span style="font-size:var(--text-sm);color:var(--text-faint)">1 = solo mode · 2+ = team mode (random draw)</span>
+          </div>
         </section>
         <section class="form-section card">
           <h2 class="section-title">Problems</h2>
@@ -417,6 +487,7 @@ function renderBuilder(container) {
     </div>`;
 
   let lastState = null;
+  let currentTeams = null;
 
   const extractSlug = line => {
     const m = line.match(/\/problems\/([\w-]+)/);
@@ -448,30 +519,38 @@ function renderBuilder(container) {
       title: $('f-title').value.trim(),
       start: $('f-start').value,
       mins:  Math.max(1, parseInt($('f-duration').value, 10) || 90),
+      teamSize: Math.max(1, parseInt($('f-teamsize').value, 10) || 1),
       users,
       displayNames,
       slugs: $('f-tasks').value.split('\n').map(l => l.trim()).filter(Boolean).map(extractSlug).filter(Boolean),
     };
   };
 
-  const toState = ({ title, start, mins, users, displayNames, slugs }) => ({
+  const toState = ({ title, start, mins, teamSize, users, displayNames, slugs }) => ({
     v: 1, title,
     start:    start ? Math.floor(new Date(start) / 1000) : 0,
     duration: mins * 60,
-    users,
+    users: currentTeams ? currentTeams.flatMap(t => t.members) : users,
     ...withDN(displayNames),
     tasks: slugs.map(s => ({ problemName: s })),
+    ...(currentTeams ? { teamSize, teams: currentTeams } : {}),
   });
 
-  const toJsonObj = ({ title, start, mins, users, displayNames, slugs }) =>
-    ({ title, startLocal: start, duration: mins, users, ...withDN(displayNames), problems: slugs });
+  const toJsonObj = ({ title, start, mins, teamSize, users, displayNames, slugs }) => ({
+    title, startLocal: start, duration: mins,
+    users: currentTeams ? currentTeams.flatMap(t => t.members) : users,
+    ...withDN(displayNames),
+    problems: slugs,
+    ...(currentTeams ? { teamSize, teams: currentTeams } : teamSize > 1 ? { teamSize } : {}),
+  });
 
-  const applyFields = ({ title, duration, start, usersText, tasks }) => {
+  const applyFields = ({ title, duration, start, usersText, tasks, teamSize }) => {
     if (title    != null) $('f-title').value    = title;
     if (duration != null) $('f-duration').value = duration;
     if (start    != null) $('f-start').value    = start;
     if (usersText != null) $('f-users').value   = usersText;
     if (tasks    != null) $('f-tasks').value    = tasks;
+    if (teamSize != null) $('f-teamsize').value = teamSize;
   };
 
   const now = new Date();
@@ -480,12 +559,16 @@ function renderBuilder(container) {
   $('f-users').value = `o_xot_nik|Andrii\nkjsdf983|Anton\nuser7820aV|Daniil\nvanyadndz|Ivan\nmaryll|Mariia\nmike324|Mike\nikibo|Oleh\nskycomandor|Oleksandr\nuser0221t|Olha\nm0ld|Petro\nroman-mozil|Roman\nuser2592Q|Viktor\nyarobez|Yaro\nyaroslav-shlapak|Yaroslav`;
 
   function fillForm(s) {
+    if (s.teams?.length) currentTeams = s.teams;
+    const users = s.users ?? [];
+    const tasks = s.tasks ?? [];
     applyFields({
       title:     s.title,
       duration:  s.duration != null ? Math.round(s.duration / 60) : null,
       start:     s.start    != null ? toLocalDT(new Date(s.start * 1000)) : null,
-      usersText: s.users.length     ? formatUserLines(s.users, s.displayNames) : null,
-      tasks:     s.tasks.length     ? s.tasks.map(t => t.problemName).join('\n') : null,
+      usersText: users.length ? formatUserLines(users, s.displayNames) : null,
+      tasks:     tasks.length ? tasks.map(t => t.problemName).join('\n') : null,
+      teamSize:  s.teamSize ?? null,
     });
   }
 
@@ -509,6 +592,8 @@ function renderBuilder(container) {
       const users = j.users
         ? (Array.isArray(j.users) ? j.users : j.users.split('\n').map(u => u.trim()).filter(Boolean))
         : null;
+      if (j.teams?.length) currentTeams = j.teams;
+      else currentTeams = null;
       applyFields({
         title:     j.title,
         duration:  j.duration,
@@ -517,6 +602,7 @@ function renderBuilder(container) {
         tasks:     Array.isArray(j.problems)      ? j.problems.join('\n')
                  : typeof j.problems === 'string' ? j.problems
                  : null,
+        teamSize:  j.teamSize ?? null,
       });
       return true;
     } catch { return false; }
@@ -540,9 +626,16 @@ function renderBuilder(container) {
     if (normalized !== val) { $('f-tasks').value = normalized; sync(); }
   };
 
-  ['f-title', 'f-start', 'f-duration', 'f-users', 'f-tasks'].forEach(id =>
-    $(id).addEventListener('input', sync)
-  );
+  const regenerateTeamsAndSync = () => {
+    if (!jsonLock) {
+      const f = readFields();
+      currentTeams = f.teamSize > 1 && f.users.length > 0 ? generateTeams(f.users, f.teamSize) : null;
+    }
+    sync();
+  };
+
+  ['f-title', 'f-start', 'f-duration', 'f-tasks'].forEach(id => $(id).addEventListener('input', sync));
+  ['f-users', 'f-teamsize'].forEach(id => $(id).addEventListener('input', regenerateTeamsAndSync));
   $('f-tasks').addEventListener('paste', () => setTimeout(normalizeTasks, 0));
   $('f-tasks').addEventListener('blur', normalizeTasks);
   sync();
