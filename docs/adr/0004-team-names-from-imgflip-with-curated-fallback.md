@@ -10,6 +10,7 @@ A wide range of alternatives was evaluated and rejected. Real-world "trending" a
 
 ## Consequences
 
-- `TEAM_WORDS` is kept, not deleted — it now serves as the offline/failure fallback rather than the only source.
-- Team names are still frozen into the Contest State URL exactly as before (see 0001, 0002) — this only changes how the builder picks a name at generation time, not where or how it's persisted.
+- `TEAM_WORDS` is kept, not deleted — it now serves as the offline/failure fallback rather than the only source, and may end up partially overwritten rather than fully live or fully curated within a single session.
+- Team names (and, when present, `nameUrl`) are frozen into the Contest State URL at generation time, same as before (see 0001, 0002) — a team's link, like its name, is fixed once generated and identical for every viewer.
+- Contest links with a linked team name are a little longer than before, since `nameUrl` adds roughly the length of an Imgflip image URL per team; not expected to be significant at typical contest sizes.
 - No automated tests cover the fetch/timeout/fallback path; verification is manual, via the Network tab and devtools request-blocking.
