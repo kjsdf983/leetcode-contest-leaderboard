@@ -60,6 +60,8 @@ Each team gets a randomly assigned space-themed name (Aurora, Nebula, Quasar, �
 
 Team assignments are generated once in the builder and stored in the URL — every viewer sees the same teams. To reshuffle, edit the Team Size field or the participant list; to assign teams manually, edit the `teams` array in the Config JSON textarea.
 
+Each team also gets a numbered communication channel, shown on the leaderboard under its member list (`Channel 1`, `Channel 2`, …). The number is the team's position in the `teams` array, so it stays fixed for the life of the contest; reordering the `teams` array manually in the Config JSON will renumber channels accordingly.
+
 ## Config JSON
 
 The JSON textarea in the builder accepts and exports the following fields:
