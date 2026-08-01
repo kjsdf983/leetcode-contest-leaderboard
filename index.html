@@ -160,6 +160,35 @@ const TEAM_WORDS = [
   'Stellar','Sunspot','Supernova','Vertex','Zodiac',
 ];
 
+const TEAM_WORD_LINKS = {};
+let liveWordsRequested = false;
+
+function loadLiveWords() {
+  if (liveWordsRequested) return;
+  liveWordsRequested = true;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10000);
+  fetch('https://api.imgflip.com/get_memes', { signal: controller.signal })
+    .then(res => res.ok ? res.json() : null)
+    .then(json => {
+      const seen = new Set(TEAM_WORDS.map(w => w.toLowerCase()));
+      let i = 0;
+      for (const m of json?.data?.memes || []) {
+        if (i >= TEAM_WORDS.length) break;
+        const name = (m.name || '').trim();
+        if (!name || name.split(/\s+/).length > 2) continue;
+        const key = name.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        TEAM_WORDS[i] = name;
+        if (m.url) TEAM_WORD_LINKS[name] = m.url;
+        i++;
+      }
+    })
+    .catch(() => {})
+    .finally(() => clearTimeout(timer));
+}
+
 function generateTeams(users, teamSize) {
   const shuffled = [...users];
   for (let i = shuffled.length - 1; i > 0; i--) {
@@ -172,7 +201,11 @@ function generateTeams(users, teamSize) {
     for (const u of chunks.pop()) chunks[Math.floor(Math.random() * chunks.length)].push(u);
   }
   const namePool = [...TEAM_WORDS].sort(() => Math.random() - 0.5);
-  return chunks.map((members, i) => ({ name: namePool[i] ?? `Team ${i + 1}`, members }));
+  return chunks.map((members, i) => {
+    const name = namePool[i] ?? `Team ${i + 1}`;
+    const nameUrl = TEAM_WORD_LINKS[name];
+    return nameUrl ? { name, members, nameUrl } : { name, members };
+  });
 }
 
 // ─── Codec ────────────────────────────────────────────────────────────────────
@@ -337,7 +370,9 @@ function renderViewer(container, state) {
       const rankBadge = `<span class="rank-badge${e.rank <= 3 ? ' rank-' + ['gold','silver','bronze'][e.rank-1] : ''}">${e.rank}</span>`;
       const participantCell = isTeamMode
         ? `<td class="col-user" style="white-space:normal">
-            <span style="font-weight:600">${esc(e.team.name)}</span><br>
+            ${e.team.nameUrl
+              ? `<a href="${esc(e.team.nameUrl)}" target="_blank" rel="noopener" style="font-weight:600">${esc(e.team.name)}</a>`
+              : `<span style="font-weight:600">${esc(e.team.name)}</span>`}<br>
             <span style="font-size:var(--text-xs);color:var(--text-dim)">${e.team.members.map(u => `<a href="https://leetcode.com/u/${encodeURIComponent(u)}/" target="_blank" rel="noopener" style="color:var(--text-dim)">${esc(displayNames[u] || u)}</a>`).join(' · ')}</span><br>
             <span style="font-size:11px;color:var(--text-faint)">Channel ${e.channel}</span>
            </td>`
@@ -434,6 +469,7 @@ function renderViewer(container, state) {
 function renderBuilder(container) {
   document.title = 'LeetCode Contest - Setup';
   container.classList.remove('mode-viewer');
+  loadLiveWords();
 
   container.innerHTML = `
     <div class="builder">
