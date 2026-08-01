@@ -269,7 +269,7 @@ function renderViewer(container, state) {
     const isTeamMode = teams.length > 0;
 
     const scoreEntries = isTeamMode
-      ? teams.map(team => {
+      ? teams.map((team, i) => {
           const m = {};
           const acceptors = {};
           const allSubs = [];
@@ -295,7 +295,7 @@ function renderViewer(container, state) {
           const totalTime = solved.length > 0 ? solved[solved.length - 1].solveTime : 0;
           let prev = 0;
           for (const d of solved) { d.delta = d.solveTime - prev; prev = d.solveTime; }
-          return { team, m, score, totalTime };
+          return { team, channel: i + 1, m, score, totalTime };
         })
       : users.map(u => {
           const m = {};
@@ -338,7 +338,8 @@ function renderViewer(container, state) {
       const participantCell = isTeamMode
         ? `<td class="col-user" style="white-space:normal">
             <span style="font-weight:600">${esc(e.team.name)}</span><br>
-            <span style="font-size:var(--text-xs);color:var(--text-dim)">${e.team.members.map(u => `<a href="https://leetcode.com/u/${encodeURIComponent(u)}/" target="_blank" rel="noopener" style="color:var(--text-dim)">${esc(displayNames[u] || u)}</a>`).join(' · ')}</span>
+            <span style="font-size:var(--text-xs);color:var(--text-dim)">${e.team.members.map(u => `<a href="https://leetcode.com/u/${encodeURIComponent(u)}/" target="_blank" rel="noopener" style="color:var(--text-dim)">${esc(displayNames[u] || u)}</a>`).join(' · ')}</span><br>
+            <span style="font-size:11px;color:var(--text-faint)">Channel ${e.channel}</span>
            </td>`
         : `<td class="col-user"><a href="https://leetcode.com/u/${encodeURIComponent(e.u)}/" target="_blank" rel="noopener">${esc(displayNames[e.u] || e.u)}</a></td>`;
       return `<tr>
