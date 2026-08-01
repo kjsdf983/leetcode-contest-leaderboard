@@ -32,6 +32,9 @@ _Also acceptable_: Group
 **Team Mode**: Active when the Contest State contains a `teams` array. The leaderboard scores Teams instead of individual Participants. Absent `teams` means solo mode — the current default.
 _Avoid_: Group mode, multiplayer mode
 
+**Channel**: A numbered communication assignment for a Team, shown on the leaderboard as "Channel N". N is the Team's position in the Contest State's `teams` array, so it stays fixed for the contest without being stored as its own field.
+_Avoid_: Chat room, group
+
 **Scoring Unit**: The entity that occupies one row on the leaderboard — a Participant in solo mode, a Team in team mode.
 
 ### Scoring
